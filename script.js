@@ -77,14 +77,11 @@ initTheme();
 document.querySelectorAll(".auth-tab").forEach(tab => {
   tab.addEventListener("click", () => {
     const tabName = tab.getAttribute("data-tab");
-    
     // Remove active from all tabs
     document.querySelectorAll(".auth-tab").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
-    
     // Hide all forms
     document.querySelectorAll(".auth-form").forEach(f => f.classList.remove("active"));
-    
     // Show selected form
     if (tabName === "login") {
       document.getElementById("loginForm").classList.add("active");
@@ -94,119 +91,160 @@ document.querySelectorAll(".auth-tab").forEach(tab => {
   });
 });
 
-document.getElementById("signupBtn").addEventListener("click", async () => {
-  try {
-    const username = document.getElementById("signupUsername").value.trim();
-    const email = document.getElementById("signupEmail").value.trim();
-    const password = document.getElementById("signupPassword").value.trim();
-    const confirm = document.getElementById("signupConfirmPassword").value.trim();
+// Attach signup/login handlers after DOM is ready (top-level)
+document.addEventListener('DOMContentLoaded', () => {
+  const signupBtn = document.getElementById('signupBtn');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPassword = document.getElementById('loginPassword');
 
-    if (!username || !email || !password || !confirm)
-      return alert("Fill all fields");
+  if (signupBtn) {
+    signupBtn.addEventListener('click', async () => {
+      try {
+        const username = document.getElementById('signupUsername').value.trim();
+        const email = document.getElementById('signupEmail').value.trim();
+        const password = document.getElementById('signupPassword').value.trim();
+        const confirm = document.getElementById('signupConfirmPassword').value.trim();
 
-    if (password !== confirm)
-      return alert("Passwords do not match");
+        if (!username || !email || !password || !confirm) return alert('Fill all fields');
+        if (password !== confirm) return alert('Passwords do not match');
+        if (password.length < 6) return alert('Password must be at least 6 characters');
 
-    if (password.length < 6)
-      return alert("Password must be at least 6 characters");
+        const originalText = signupBtn.textContent;
+        signupBtn.textContent = 'Creating account...';
+        signupBtn.disabled = true;
 
-    // Show loading state
-    const signupBtn = document.getElementById("signupBtn");
-    const originalText = signupBtn.textContent;
-    signupBtn.textContent = "Creating account...";
-    signupBtn.disabled = true;
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: username });
+        await setDoc(doc(db, 'users', cred.user.uid), { username, email, createdAt: serverTimestamp() });
 
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
+        alert('Signup successful! You can now login.');
+        signupBtn.textContent = originalText;
+        signupBtn.disabled = false;
 
-    await updateProfile(cred.user, { displayName: username });
-
-    await setDoc(doc(db, "users", cred.user.uid), {
-      username,
-      email,
-      createdAt: serverTimestamp()
+        // Clear form and switch to login
+        document.getElementById('signupUsername').value = '';
+        document.getElementById('signupEmail').value = '';
+        document.getElementById('signupPassword').value = '';
+        document.getElementById('signupConfirmPassword').value = '';
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.auth-tab[data-tab="login"]').classList.add('active');
+        document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+        document.getElementById('loginForm').classList.add('active');
+      } catch (err) {
+        if (signupBtn) { signupBtn.textContent = 'Sign Up'; signupBtn.disabled = false; }
+        let errorMsg = err.message;
+        if (err.code === 'auth/email-already-in-use') errorMsg = 'Email already in use. Please login or use a different email.';
+        else if (err.code === 'auth/weak-password') errorMsg = 'Password is too weak. Use at least 6 characters.';
+        else if (err.code === 'auth/invalid-email') errorMsg = 'Invalid email format.';
+        alert(errorMsg);
+        console.error('Signup error:', err);
+      }
     });
+  }
 
-    alert("Signup successful! You can now login.");
-    
-    // Reset button and switch to login tab
-    signupBtn.textContent = originalText;
-    signupBtn.disabled = false;
-    
-    // Clear form fields
-    document.getElementById("signupUsername").value = "";
-    document.getElementById("signupEmail").value = "";
-    document.getElementById("signupPassword").value = "";
-    document.getElementById("signupConfirmPassword").value = "";
-    
-    // Switch to login tab
-    document.querySelectorAll(".auth-tab").forEach(t => t.classList.remove("active"));
-    document.querySelector(".auth-tab[data-tab='login']").classList.add("active");
-    document.querySelectorAll(".auth-form").forEach(f => f.classList.remove("active"));
-    document.getElementById("loginForm").classList.add("active");
-  } catch (err) {
-    const signupBtn = document.getElementById("signupBtn");
-    signupBtn.textContent = "Sign Up";
-    signupBtn.disabled = false;
-    
-    let errorMsg = err.message;
-    if (err.code === "auth/email-already-in-use") {
-      errorMsg = "Email already in use. Please login or use a different email.";
-    } else if (err.code === "auth/weak-password") {
-      errorMsg = "Password is too weak. Use at least 6 characters.";
-    } else if (err.code === "auth/invalid-email") {
-      errorMsg = "Invalid email format.";
+  if (loginBtn) {
+    const doLogin = async () => {
+      try {
+        const email = loginEmail?.value?.trim() || '';
+        const password = loginPassword?.value?.trim() || '';
+        if (!email || !password) return alert('Please enter email and password');
+        const originalText = loginBtn.textContent;
+        loginBtn.textContent = 'Logging in...';
+        loginBtn.disabled = true;
+        await signInWithEmailAndPassword(auth, email, password);
+        loginBtn.textContent = originalText;
+        loginBtn.disabled = false;
+      } catch (err) {
+        if (loginBtn) { loginBtn.textContent = 'Login'; loginBtn.disabled = false; }
+        let errorMsg = err.message;
+        if (err.code === 'auth/user-not-found') errorMsg = 'Account not found. Please sign up first.';
+        else if (err.code === 'auth/wrong-password') errorMsg = 'Incorrect password. Please try again.';
+        else if (err.code === 'auth/invalid-email') errorMsg = 'Invalid email format.';
+        else if (err.code === 'auth/invalid-credential') errorMsg = 'Invalid email or password.';
+        alert(errorMsg);
+        console.error('Login error:', err);
+      }
+    };
+
+    loginBtn.addEventListener('click', (e) => { e.preventDefault(); doLogin(); });
+
+    // Allow Enter to submit on password field
+    if (loginPassword) {
+      loginPassword.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+      });
     }
-    
-    alert(errorMsg);
-    console.error("Signup error:", err);
   }
 });
 
+// Ensure Calculate Requirement button works for logged-in users as well
+document.addEventListener('DOMContentLoaded', () => {
+  const calculateBtn = document.getElementById('calculateGoal');
+  const input = document.getElementById('targetCGPA');
 
-document.getElementById("loginBtn").addEventListener("click", async () => {
-  try {
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value.trim();
+  const handleCalculate = (evt) => {
+    if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+    try {
+      const errorEl = document.getElementById('cgpaInputError');
+      const resultsSection = document.getElementById('goalResultsSection');
+      const rawTarget = input?.value?.trim?.() ?? '';
+      if (rawTarget === '') {
+        if (errorEl) { errorEl.textContent = 'Please enter a target CGPA.'; errorEl.classList.remove('hidden'); }
+        resultsSection?.classList.add('hidden');
+        return;
+      }
+      const targetCGPA = Number(rawTarget);
+      if (isNaN(targetCGPA) || targetCGPA < 0 || targetCGPA > 10) {
+        if (errorEl) { errorEl.textContent = 'Target CGPA must be a number between 0 and 10.'; errorEl.classList.remove('hidden'); }
+        resultsSection?.classList.add('hidden');
+        return;
+      }
 
-    // Validation
-    if (!email || !password) {
-      return alert("Please enter email and password");
+      let totalScored = 0, totalMax = 0;
+      cachedMarks.forEach(mark => { totalScored += (mark.marksScored || 0); totalMax += (mark.totalMarks || 0); });
+      if (totalMax === 0) {
+        if (errorEl) { errorEl.textContent = 'No marks available. Please add marks first.'; errorEl.classList.remove('hidden'); }
+        resultsSection?.classList.add('hidden');
+        return;
+      }
+
+      const currentPercentage = (totalScored / totalMax) * 100;
+      const currentCGPA = (currentPercentage / 100) * 10;
+      document.getElementById('currentCGPADisplay').textContent = currentCGPA.toFixed(2);
+      document.getElementById('targetCGPADisplay').textContent = targetCGPA.toFixed(2);
+
+      const requiredPercentage = (targetCGPA / 10) * 100;
+      let requiredS2Avg = Math.max(0, requiredPercentage - currentPercentage);
+      document.getElementById('requiredS2AvgDisplay').textContent = requiredS2Avg.toFixed(2);
+
+      let progressValue = 0;
+      if (targetCGPA > 0) { progressValue = (currentCGPA / targetCGPA) * 100; progressValue = Math.min(progressValue, 100); }
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
+      if (progressBar) progressBar.style.width = progressValue + '%';
+      if (progressText) progressText.textContent = Math.round(progressValue) + '% of the way there';
+
+      let riskLevel = '', riskClass = '';
+      if (requiredS2Avg > 30) { riskLevel = '🔴 High Risk'; riskClass = 'high-risk'; }
+      else if (requiredS2Avg > 15) { riskLevel = '🟡 Medium Risk'; riskClass = 'medium-risk'; }
+      else { riskLevel = '🟢 Low Risk'; riskClass = 'low-risk'; }
+
+      const riskEl = document.getElementById('riskLevelDisplay');
+      if (riskEl) { riskEl.textContent = riskLevel; riskEl.className = 'result-value risk-badge ' + riskClass; }
+      if (errorEl) errorEl.classList.add('hidden');
+      resultsSection?.classList.remove('hidden');
+
+    } catch (err) {
+      console.error('CGPA Calculator Error:', err);
+      const errorEl = document.getElementById('cgpaInputError');
+      if (errorEl) { errorEl.textContent = 'An error occurred. Please try again.'; errorEl.classList.remove('hidden'); }
     }
+  };
 
-    // Show loading state
-    const loginBtn = document.getElementById("loginBtn");
-    const originalText = loginBtn.textContent;
-    loginBtn.textContent = "Logging in...";
-    loginBtn.disabled = true;
-
-    // Sign in
-    await signInWithEmailAndPassword(auth, email, password);
-    
-    // Reset button
-    loginBtn.textContent = originalText;
-    loginBtn.disabled = false;
-  } catch (err) {
-    const loginBtn = document.getElementById("loginBtn");
-    loginBtn.textContent = "Login";
-    loginBtn.disabled = false;
-    
-    // User-friendly error messages
-    let errorMsg = err.message;
-    if (err.code === "auth/user-not-found") {
-      errorMsg = "Account not found. Please sign up first.";
-    } else if (err.code === "auth/wrong-password") {
-      errorMsg = "Incorrect password. Please try again.";
-    } else if (err.code === "auth/invalid-email") {
-      errorMsg = "Invalid email format.";
-    } else if (err.code === "auth/invalid-credential") {
-      errorMsg = "Invalid email or password.";
-    }
-    
-    alert(errorMsg);
-    console.error("Login error:", err);
-  }
+  if (calculateBtn) calculateBtn.addEventListener('click', handleCalculate);
+  if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleCalculate(e); } });
 });
-
 
 document.getElementById("logoutBtn")
   .addEventListener("click", () => signOut(auth));
@@ -239,102 +277,131 @@ onAuthStateChanged(auth, user => {
     } else {
       currentUser = null;
       console.log("❌ No user logged in");
-      authSection.classList.remove("hidden");
-      dashboard.classList.add("hidden");
+      // ==========================
+      // 🎯 CGPA GOAL PLANNER EVENT LISTENER (attached on DOMContentLoaded)
+      // Attach calculate handler after DOM is ready to avoid timing issues.
+      document.addEventListener('DOMContentLoaded', () => {
+        const calculateBtn = document.getElementById('calculateGoal');
+        const input = document.getElementById('targetCGPA');
+        console.log('Calculate button (DOMContentLoaded) found:', calculateBtn);
+
+        const handleCalculate = (evt) => {
+          if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+          try {
+            const errorEl = document.getElementById('cgpaInputError');
+            const resultsSection = document.getElementById('goalResultsSection');
+
+            const rawTarget = input?.value?.trim?.() ?? '';
+            if (rawTarget === '') {
+              if (errorEl) {
+                errorEl.textContent = 'Please enter a target CGPA.';
+                errorEl.classList.remove('hidden');
+              }
+              resultsSection?.classList.add('hidden');
+              return;
+            }
+
+            const targetCGPA = Number(rawTarget);
+            if (isNaN(targetCGPA) || targetCGPA < 0 || targetCGPA > 10) {
+              if (errorEl) {
+                errorEl.textContent = 'Target CGPA must be a number between 0 and 10.';
+                errorEl.classList.remove('hidden');
+              }
+              resultsSection?.classList.add('hidden');
+              return;
+            }
+
+            // Calculate current totals
+            let totalScored = 0;
+            let totalMax = 0;
+            cachedMarks.forEach(mark => {
+              totalScored += (mark.marksScored || 0);
+              totalMax += (mark.totalMarks || 0);
+            });
+
+            if (totalMax === 0) {
+              if (errorEl) {
+                errorEl.textContent = 'No marks available. Please add marks first.';
+                errorEl.classList.remove('hidden');
+              }
+              resultsSection?.classList.add('hidden');
+              return;
+            }
+
+            const currentPercentage = (totalScored / totalMax) * 100;
+            const currentCGPA = (currentPercentage / 100) * 10;
+
+            document.getElementById('currentCGPADisplay').textContent = currentCGPA.toFixed(2);
+            document.getElementById('targetCGPADisplay').textContent = targetCGPA.toFixed(2);
+
+            const requiredPercentage = (targetCGPA / 10) * 100;
+            let requiredS2Avg = requiredPercentage - currentPercentage;
+            requiredS2Avg = Math.max(0, requiredS2Avg);
+            document.getElementById('requiredS2AvgDisplay').textContent = requiredS2Avg.toFixed(2);
+
+            let progressValue = 0;
+            if (targetCGPA > 0) {
+              progressValue = (currentCGPA / targetCGPA) * 100;
+              progressValue = Math.min(progressValue, 100);
+            }
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            if (progressBar) progressBar.style.width = progressValue + '%';
+            if (progressText) progressText.textContent = Math.round(progressValue) + '% of the way there';
+
+            let riskLevel = '';
+            let riskClass = '';
+            if (requiredS2Avg > 30) {
+              riskLevel = '🔴 High Risk';
+              riskClass = 'high-risk';
+            } else if (requiredS2Avg > 15) {
+              riskLevel = '🟡 Medium Risk';
+              riskClass = 'medium-risk';
+            } else {
+              riskLevel = '🟢 Low Risk';
+              riskClass = 'low-risk';
+            }
+
+            const riskEl = document.getElementById('riskLevelDisplay');
+            if (riskEl) {
+              riskEl.textContent = riskLevel;
+              riskEl.className = 'result-value risk-badge ' + riskClass;
+            }
+
+            if (errorEl) errorEl.classList.add('hidden');
+            resultsSection?.classList.remove('hidden');
+
+          } catch (error) {
+            console.error('CGPA Calculator Error:', error);
+            const errorEl = document.getElementById('cgpaInputError');
+            if (errorEl) {
+              errorEl.textContent = 'An error occurred. Please try again.';
+              errorEl.classList.remove('hidden');
+            }
+          }
+        };
+
+        if (calculateBtn) calculateBtn.addEventListener('click', handleCalculate);
+
+        // Support pressing Enter in the input to trigger calculation
+        if (input) {
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleCalculate(e);
+            }
+          });
+        }
+      });
+
+      }
+    } catch (err) {
+      console.error("❌ Auth state change error:", err);
     }
-  } catch (err) {
-    console.error("❌ Auth state change error:", err);
-  }
-});
-
-
-// ==========================
-// 📱 MOBILE MENU
-// ==========================
-
-const hamburger = document.getElementById("hamburger");
-const sidebar = document.getElementById("sidebar");
-const sidebarOverlay = document.getElementById("sidebarOverlay");
-
-hamburger.addEventListener("click", () => {
-  hamburger.classList.toggle("active");
-  sidebar.classList.toggle("open");
-  sidebarOverlay.classList.toggle("active");
-});
-
-sidebarOverlay.addEventListener("click", () => {
-  hamburger.classList.remove("active");
-  sidebar.classList.remove("open");
-  sidebarOverlay.classList.remove("active");
-});
-
-// Close menu on nav item click
-document.querySelectorAll(".nav-item").forEach(item => {
-  item.addEventListener("click", () => {
-    hamburger.classList.remove("active");
-    sidebar.classList.remove("open");
-    sidebarOverlay.classList.remove("active");
   });
-});
 
-
-// ==========================
-// 🧭 NAVIGATION (Internals / Semester Fix)
-// ==========================
-
-document.querySelectorAll(".nav-item").forEach(btn => {
-  btn.addEventListener("click", () => {
-
-    document.querySelectorAll(".nav-item")
-      .forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-
-    const section = btn.dataset.section;
-
-    document.querySelectorAll(".content-section")
-      .forEach(sec => sec.classList.remove("active"));
-
-    document.getElementById(section + "-section")
-      .classList.add("active");
-  });
-});
-
-
-// ==========================
-// 🎯 SEMESTER SELECTOR BUTTONS
-// ==========================
-
-document.querySelectorAll(".sem-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".sem-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    // Refresh table if needed
-    renderInternalsTable();
-  });
-});
-
-
-// ==========================
-// 🎯 YEAR SELECTOR BUTTONS
-// ==========================
-
-document.querySelectorAll(".year-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".year-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    // Refresh table if needed
-    renderSemesterTable();
-  });
-});
-
-
-// ==========================
-// 💾 SAVE MARKS (FULL FIX)
-// ==========================
-
-document.getElementById("saveMarks")
-  .addEventListener("click", async () => {
-
+  // Save marks button handler
+  document.getElementById("saveMarks")?.addEventListener("click", async () => {
     try {
       if (!currentUser) return alert("Login first");
 
@@ -347,6 +414,7 @@ document.getElementById("saveMarks")
       const totalVal = Number(document.getElementById("totalMarks").value);
       const attendanceVal = Number(document.getElementById("attendance").value) || 0;
       const totalClassesVal = Number(document.getElementById("totalClasses").value) || 0;
+      const assignmentMarksVal = Number(document.getElementById("assignmentMarks").value) || 0;
 
       if (!subjectVal || !yearVal || !semesterVal || !examTypeVal)
         return alert("Fill all required fields");
@@ -365,6 +433,7 @@ document.getElementById("saveMarks")
           totalMarks: totalVal,
           attendance: attendanceVal,
           totalClasses: totalClassesVal,
+          assignmentMarks: assignmentMarksVal,
           createdAt: serverTimestamp()
         }
       );
@@ -426,21 +495,24 @@ function calculateDashboard() {
 
   // S1 Total Score Calculation
   const s1Marks = cachedMarks.filter(m => m.semester === "S1");
+  // Aggregate per-subject for S1 to avoid double-counting attendance/assignments
   let s1Total = 0;
+  const s1BySubject = {};
   s1Marks.forEach(m => {
-    if (m.examType === "Internal1" || m.examType === "Internal2") {
-      s1Total += m.marksScored || 0;
-    } else if (m.examType === "Semester") {
-      s1Total += m.marksScored || 0;
-    }
-    s1Total += m.attendance || 0;
-    s1Total += m.assignmentMarks || 0;
+    const subj = m.subject || '__unknown__';
+    if (!s1BySubject[subj]) s1BySubject[subj] = { marks: 0, attendance: 0, assignment: 0 };
+    s1BySubject[subj].marks += Number(m.marksScored || 0);
+    s1BySubject[subj].attendance = Math.max(s1BySubject[subj].attendance, Number(m.attendance || 0));
+    s1BySubject[subj].assignment = Math.max(s1BySubject[subj].assignment, Number(m.assignmentMarks || 0));
+  });
+  Object.values(s1BySubject).forEach(v => {
+    s1Total += v.marks + v.attendance + v.assignment;
   });
   document.getElementById("s1TotalScoreDisplay").textContent = s1Total.toFixed(0);
 
-  // S1 CGPA Calculation (max 4.0)
-  const s1MaxTotal = s1Marks.length * 100; // assuming max per subject
-  const s1CGPA = s1MaxTotal > 0 ? (s1Total / (s1MaxTotal / 4)) : 0;
+  // S1 CGPA Calculation (convert from 0-10 scale to 0-4 scale)
+  const s1CGPAInfo = calculateCurrentCGPAFromS1(); // returns { currentCGPA: 0-10, total, maxTotal }
+  const s1CGPA = s1CGPAInfo.maxTotal > 0 ? (s1CGPAInfo.currentCGPA / 10) * 4 : 0;
   document.getElementById("s1CgpaDisplay").textContent = Math.min(s1CGPA, 4.0).toFixed(2);
 
   // Required S2 Average to maintain/achieve target
@@ -463,10 +535,13 @@ function calculateDashboard() {
   // Best and Weakest Subjects
   const subjectAverages = {};
   cachedMarks.forEach(m => {
+    if (!m.subject) return;
     if (!subjectAverages[m.subject]) {
       subjectAverages[m.subject] = { scores: [], count: 0 };
     }
-    subjectAverages[m.subject].scores.push((m.marksScored / m.totalMarks) * 100);
+    if (m.totalMarks && m.totalMarks > 0) {
+      subjectAverages[m.subject].scores.push((m.marksScored || 0) / m.totalMarks * 100);
+    }
   });
 
   let bestSubject = "N/A";
@@ -492,11 +567,19 @@ function calculateDashboard() {
   document.getElementById("weakestScore").textContent = `(${weakestScore.toFixed(1)}%)`;
 
   // Total Attendance
+  // Compute attendance using unique subject+semester entries to avoid duplicates
   let totalAttended = 0;
   let totalClasses = 0;
+  const attendanceMap = {};
   cachedMarks.forEach(m => {
-    totalAttended += m.attendance || 0;
-    totalClasses += m.totalClasses || 0;
+    const key = `${m.subject || '__'}::${m.semester || '__'}`;
+    if (!attendanceMap[key]) attendanceMap[key] = { attended: 0, total: 0 };
+    attendanceMap[key].attended = Math.max(attendanceMap[key].attended, Number(m.attendance || 0));
+    attendanceMap[key].total = Math.max(attendanceMap[key].total, Number(m.totalClasses || 0));
+  });
+  Object.values(attendanceMap).forEach(v => {
+    totalAttended += v.attended;
+    totalClasses += v.total;
   });
   const attendancePercentage = totalClasses > 0 ? ((totalAttended / totalClasses) * 100).toFixed(1) : 0;
   document.getElementById("totalAttendance").textContent = attendancePercentage + "%";
@@ -563,216 +646,7 @@ function renderInsights() {
 }
 
 
-// ==========================
-// 🎯 CGPA GOAL PLANNER
-// ==========================
-
-function calculateCurrentCGPA() {
-  // Calculate current CGPA from S1 marks only
-  const s1Marks = cachedMarks.filter(m => m.semester === "S1");
-  
-  if (s1Marks.length === 0) {
-    return 0;
-  }
-
-  let totalS1Marks = 0;
-  let totalMaxMarks = 0;
-
-  s1Marks.forEach(m => {
-    totalS1Marks += m.marksScored || 0;
-    totalMaxMarks += m.totalMarks || 0;
-  });
-
-  const currentCGPA = totalMaxMarks > 0 ? (totalS1Marks / totalMaxMarks) * 10 : 0;
-  return parseFloat(currentCGPA.toFixed(2));
-}
-
-function calculateGoalRequirements(targetCGPA) {
-  const currentCGPA = calculateCurrentCGPA();
-  
-  // Formula: Required Average for S2 = ((Target CGPA × 2) − Current CGPA)
-  const requiredS2Avg = (targetCGPA * 2) - currentCGPA;
-
-  // Determine risk level
-  let riskLevel = "realistic";
-  let riskClass = "realistic";
-  
-  if (requiredS2Avg <= currentCGPA) {
-    riskLevel = "🟢 Realistic";
-    riskClass = "realistic";
-  } else if (requiredS2Avg <= currentCGPA + 2) {
-    riskLevel = "🟡 Moderate Effort";
-    riskClass = "moderate";
-  } else {
-    riskLevel = "🔴 Risky";
-    riskClass = "risky";
-  }
-
-  // Get S1 marks to calculate per-subject requirements for S2
-  const s1Marks = cachedMarks.filter(m => m.semester === "S1");
-  
-  // Group S1 marks by subject to get max marks per subject
-  const subjectMaxMarks = {};
-  const subjectOrder = [];
-
-  s1Marks.forEach(m => {
-    if (!subjectMaxMarks[m.subject]) {
-      subjectMaxMarks[m.subject] = m.totalMarks;
-      subjectOrder.push(m.subject);
-    }
-  });
-
-  // Calculate minimum marks required per subject in S2
-  const requiredMarksPerSubject = {};
-  Object.entries(subjectMaxMarks).forEach(([subject, maxMarks]) => {
-    // Assuming S2 will have similar structure
-    // Required marks = (Required Average × Max Mark Per Subject) / 10
-    const requiredMarks = (requiredS2Avg * maxMarks) / 10;
-    requiredMarksPerSubject[subject] = {
-      required: Math.max(0, requiredMarks),
-      max: maxMarks
-    };
-  });
-
-  return {
-    currentCGPA,
-    targetCGPA,
-    requiredS2Avg,
-    riskLevel,
-    riskClass,
-    requiredMarksPerSubject,
-    subjectOrder
-  };
-}
-
-function displayGoalResults(data) {
-  // Display current and target CGPA
-  document.getElementById("currentCGPADisplay").textContent = data.currentCGPA.toFixed(2);
-  document.getElementById("targetCGPADisplay").textContent = data.targetCGPA.toFixed(2);
-
-  // Display required S2 average
-  document.getElementById("requiredS2AvgDisplay").textContent = Math.max(0, data.requiredS2Avg).toFixed(2);
-
-  // Update risk level badge
-  const riskBadge = document.getElementById("riskLevelDisplay");
-  riskBadge.textContent = data.riskLevel;
-  riskBadge.className = `result-value risk-badge ${data.riskClass}`;
-
-  // Update progress bar
-  const progressRange = 10; // 0 to 10 CGPA scale
-  const currentProgress = data.currentCGPA;
-  const targetProgress = Math.min(data.targetCGPA, 10);
-  const progressPercentage = (currentProgress / targetProgress) * 100;
-
-  const progressBar = document.getElementById("progressBar");
-  progressBar.style.width = Math.min(progressPercentage, 100) + "%";
-  
-  const progressText = document.getElementById("progressText");
-  progressText.textContent = Math.min(Math.round(progressPercentage), 100) + "% of the way there";
-
-  // Display risk message
-  let riskMessage = "";
-  let motivationText = "&nbsp;<br>💡 <strong>Pro Tip:</strong> Stay focused. Small improvements in each subject can help you achieve your dream CGPA.";
-
-  if (data.riskClass === "realistic") {
-    riskMessage = `<strong>🟢 Target CGPA is Realistic</strong><br>Maintain consistency in your studies. You're on a great trajectory!${motivationText}`;
-  } else if (data.riskClass === "moderate") {
-    riskMessage = `<strong>🟡 You Need Consistent Improvement</strong><br>An average of <strong>${data.requiredS2Avg.toFixed(2)}</strong> in Semester 2 is required. Increase your efforts slightly.${motivationText}`;
-  } else {
-    riskMessage = `<strong>🔴 This Target is Ambitious</strong><br>You need to score <strong>${data.requiredS2Avg.toFixed(2)}</strong> average in Semester 2. Significant improvement in all subjects required.${motivationText}`;
-  }
-
-  const riskMessageDiv = document.getElementById("riskMessage");
-  riskMessageDiv.innerHTML = riskMessage;
-  riskMessageDiv.className = `risk-message ${data.riskClass}`;
-
-  // Display required marks table
-  let tableHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>SUBJECT</th>
-          <th>MIN MARKS REQUIRED</th>
-          <th>OUT OF</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-
-  data.subjectOrder.forEach(subject => {
-    const marks = data.requiredMarksPerSubject[subject];
-    tableHTML += `
-      <tr>
-        <td><strong>${subject}</strong></td>
-        <td>${marks.required.toFixed(1)}</td>
-        <td>${marks.max}</td>
-      </tr>
-    `;
-  });
-
-  tableHTML += `
-      </tbody>
-    </table>
-  `;
-
-  document.getElementById("requiredMarksTable").innerHTML = tableHTML;
-
-  // Show results section with animation
-  const resultsSection = document.getElementById("goalResultsSection");
-  resultsSection.classList.remove("hidden");
-}
-
-function handleCalculateGoal() {
-  const targetCGPAInput = document.getElementById("targetCGPA").value.trim();
-  const errorDiv = document.getElementById("cgpaInputError");
-
-  // Validation
-  if (!targetCGPAInput) {
-    errorDiv.textContent = "❌ Please enter a target CGPA value";
-    errorDiv.classList.remove("hidden");
-    return;
-  }
-
-  const targetCGPA = parseFloat(targetCGPAInput);
-
-  if (isNaN(targetCGPA)) {
-    errorDiv.textContent = "❌ Please enter a valid number";
-    errorDiv.classList.remove("hidden");
-    return;
-  }
-
-  if (targetCGPA < 0 || targetCGPA > 10) {
-    errorDiv.textContent = "❌ Target CGPA must be between 0 and 10";
-    errorDiv.classList.remove("hidden");
-    return;
-  }
-
-  // Check if S1 marks are available
-  const s1Marks = cachedMarks.filter(m => m.semester === "S1");
-  if (s1Marks.length === 0) {
-    errorDiv.textContent = "❌ Please add Semester 1 marks first to use the CGPA planner";
-    errorDiv.classList.remove("hidden");
-    return;
-  }
-
-  // Hide error and calculate
-  errorDiv.classList.add("hidden");
-
-  const data = calculateGoalRequirements(targetCGPA);
-  displayGoalResults(data);
-}
-
-// Event listener for calculate goal button
-document.getElementById("calculateGoal")?.addEventListener("click", () => {
-  handleCalculateGoal();
-});
-
-// Allow Enter key to trigger calculation
-document.getElementById("targetCGPA")?.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") {
-    handleCalculateGoal();
-  }
-});
+// NOTE: CGPA planner logic is implemented below in a consolidated block.
 
 
 // ==========================
@@ -792,11 +666,10 @@ function renderCharts() {
   // BAR CHART
   const subjectMap = {};
   cachedMarks.forEach(m => {
-    if (!subjectMap[m.subject])
-      subjectMap[m.subject] = { s: 0, t: 0 };
-
-    subjectMap[m.subject].s += m.marksScored;
-    subjectMap[m.subject].t += m.totalMarks;
+    const subj = m.subject || '__unknown__';
+    if (!subjectMap[subj]) subjectMap[subj] = { s: 0, t: 0 };
+    subjectMap[subj].s += Number(m.marksScored || 0);
+    subjectMap[subj].t += Number(m.totalMarks || 0);
   });
 
   const subjectBarChart = document.getElementById("subjectBarChart");
@@ -810,7 +683,7 @@ function renderCharts() {
           datasets: [{
             label: "Percentage",
             data: Object.values(subjectMap)
-              .map(v => (v.s / v.t) * 100),
+              .map(v => (v.t && v.t > 0) ? (v.s / v.t) * 100 : 0),
             backgroundColor: "rgba(0, 217, 255, 0.6)",
             borderColor: "#00D9FF",
             borderWidth: 2
@@ -831,12 +704,19 @@ function renderCharts() {
   }
 
   // ATTENDANCE PIE
+  // Use unique subject+semester entries to compute attendance for the chart
   let attended = 0;
   let totalClassesCount = 0;
-
+  const attendanceMapChart = {};
   cachedMarks.forEach(m => {
-    attended += m.attendance || 0;
-    totalClassesCount += m.totalClasses || 0;
+    const key = `${m.subject || '__'}::${m.semester || '__'}`;
+    if (!attendanceMapChart[key]) attendanceMapChart[key] = { attended: 0, total: 0 };
+    attendanceMapChart[key].attended = Math.max(attendanceMapChart[key].attended, Number(m.attendance || 0));
+    attendanceMapChart[key].total = Math.max(attendanceMapChart[key].total, Number(m.totalClasses || 0));
+  });
+  Object.values(attendanceMapChart).forEach(v => {
+    attended += v.attended;
+    totalClassesCount += v.total;
   });
 
   const attendancePieChart = document.getElementById("attendancePieChart");
@@ -1340,159 +1220,54 @@ function getMaxMarkPerSubject(subject) {
 function calculateCurrentCGPAFromS1() {
   const s1 = cachedMarks.filter(m => m.semester === 'S1');
   if (s1.length === 0) return { currentCGPA: 0, total: 0, maxTotal: 0 };
-  let total = 0, max = 0;
+
+  // Aggregate per subject to avoid double-counting and compute subject-wise final and max
+  const subjMap = {};
   s1.forEach(m => {
-    total += Number(m.marksScored || 0);
-    max += Number(m.totalMarks || 0);
+    const sub = m.subject || '__unknown__';
+    if (!subjMap[sub]) subjMap[sub] = {
+      semesterMarks: 0, semesterMax: 0,
+      internal1Marks: 0, internal1Max: 0,
+      attendance: 0, attendanceMax: 0,
+      assignment: 0, assignmentMax: 0
+    };
+
+    if (m.examType === 'Semester') {
+      subjMap[sub].semesterMarks += Number(m.marksScored || 0);
+      subjMap[sub].semesterMax += Number(m.totalMarks || 0);
+    } else if (m.examType === 'Internal1') {
+      subjMap[sub].internal1Marks = Math.max(subjMap[sub].internal1Marks, Number(m.marksScored || 0));
+      subjMap[sub].internal1Max = Math.max(subjMap[sub].internal1Max, Number(m.totalMarks || 0));
+    }
+
+    // Attendance and totalClasses (use max per subject)
+    subjMap[sub].attendance = Math.max(subjMap[sub].attendance, Number(m.attendance || 0));
+    subjMap[sub].attendanceMax = Math.max(subjMap[sub].attendanceMax, Number(m.totalClasses || 0));
+
+    // Assignment marks (use max observed; assignmentMax default to 10 if unknown)
+    subjMap[sub].assignment = Math.max(subjMap[sub].assignment, Number(m.assignmentMarks || 0));
+    subjMap[sub].assignmentMax = Math.max(subjMap[sub].assignmentMax, (typeof m.assignmentMarks === 'number' ? Number(m.assignmentMarks) : 0));
   });
-  if (max === 0) return { currentCGPA: 0, total, maxTotal: max };
-  const currentCGPA = (total / max) * 10;
-  return { currentCGPA, total, maxTotal: max };
+
+  // Compute totals
+  let totalObtained = 0;
+  let totalPossible = 0;
+  Object.values(subjMap).forEach(s => {
+    // If assignmentMax is zero, assume a small default max (e.g., 10)
+    const assignMax = s.assignmentMax > 0 ? s.assignmentMax : 10;
+    const subjectObtained = (s.semesterMarks || 0) + (s.internal1Marks || 0) + (s.attendance || 0) + (s.assignment || 0);
+    const subjectMax = (s.semesterMax || 0) + (s.internal1Max || 0) + (s.attendanceMax || 0) + assignMax;
+    if (subjectMax > 0) {
+      totalObtained += subjectObtained;
+      totalPossible += subjectMax;
+    }
+  });
+
+  if (totalPossible === 0) return { currentCGPA: 0, total: totalObtained, maxTotal: totalPossible };
+  const currentCGPA = (totalObtained / totalPossible) * 10;
+  return { currentCGPA, total: totalObtained, maxTotal: totalPossible };
 }
 
-document.getElementById('calculateGoal')?.addEventListener('click', () => {
-  try {
-    const btn = document.getElementById('calculateGoal');
-    const input = document.getElementById('targetCGPA');
-    const errorEl = document.getElementById('cgpaInputError');
-    const resultsSection = document.getElementById('goalResultsSection');
-
-    errorEl.classList.add('hidden');
-
-    const rawTarget = input.value;
-    if (!rawTarget && rawTarget !== 0) {
-      errorEl.textContent = 'Please enter a target CGPA.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-
-    const target = Number(rawTarget);
-    if (isNaN(target) || target < 0 || target > 10) {
-      errorEl.textContent = 'Target CGPA must be a number between 0 and 10.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-
-    // Ensure S1 marks available
-    const s1Marks = cachedMarks.filter(m => m.semester === 'S1');
-    if (!s1Marks || s1Marks.length === 0) {
-      errorEl.textContent = 'Semester 1 marks not available. Cannot calculate requirements.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-
-    // Disable button briefly for animation / preventing double-click
-    btn.disabled = true;
-    btn.textContent = 'Calculating...';
-
-    // Compute current CGPA
-    const { currentCGPA, total, maxTotal } = calculateCurrentCGPAFromS1();
-    const current = Number(currentCGPA.toFixed(2));
-
-    // Required average for Semester 2 (on 0-10 scale)
-    let requiredS2Avg = (target * 2) - current;
-    // Clamp to sensible range 0..10 for display
-    requiredS2Avg = Math.max(0, Math.min(10, requiredS2Avg));
-    const requiredRounded = Number(requiredS2Avg.toFixed(2));
-
-    // Risk assessment thresholds
-    const diff = requiredS2Avg - current;
-    let risk = 'realistic';
-    let riskLabel = 'Realistic';
-    let riskMsg = 'Target CGPA is realistic. Maintain consistency.';
-
-    if (requiredS2Avg <= current) {
-      risk = 'realistic';
-      riskLabel = 'Realistic';
-      riskMsg = 'Target CGPA is realistic. Maintain consistency.';
-    } else if (diff > 0 && diff <= 1.0) {
-      risk = 'moderate';
-      riskLabel = 'Moderate';
-      riskMsg = 'You need consistent improvement to reach your target.';
-    } else {
-      risk = 'risky';
-      riskLabel = 'Risky';
-      riskMsg = 'Target is ambitious. Significant improvement required.';
-    }
-
-    // Required marks per subject (use subjects from S1 in order entered)
-    const subjects = getS1SubjectsOrdered();
-    let tableHTML = '';
-    if (subjects.length === 0) {
-      tableHTML = '<p style="padding:12px; color: var(--text-secondary);">No subjects found for Semester 2 estimation.</p>';
-    } else {
-      tableHTML = `<table><thead><tr><th>Subject</th><th>Minimum Marks Required</th></tr></thead><tbody>`;
-      subjects.forEach(sub => {
-        const maxPer = getMaxMarkPerSubject(sub) || 100;
-        const requiredMarks = Math.ceil((requiredS2Avg * maxPer) / 10);
-        const safeRequired = Math.max(0, Math.min(requiredMarks, maxPer));
-        const highlight = requiredMarks > maxPer ? 'style="color: var(--text-primary); font-weight:700; background: rgba(255,77,77,0.06);"' : '';
-        tableHTML += `<tr><td>${sub}</td><td ${highlight}>${safeRequired} / ${maxPer}</td></tr>`;
-      });
-      tableHTML += `</tbody></table>`;
-    }
-
-    // Update UI
-    document.getElementById('currentCGPADisplay').textContent = current.toFixed(2);
-    document.getElementById('targetCGPADisplay').textContent = target.toFixed(2);
-    document.getElementById('requiredS2AvgDisplay').textContent = requiredRounded.toFixed(2);
-
-    const riskEl = document.getElementById('riskLevelDisplay');
-    riskEl.textContent = riskLabel;
-    riskEl.className = 'result-value risk-badge ' + risk;
-
-    const riskMsgEl = document.getElementById('riskMessage');
-    riskMsgEl.textContent = riskMsg;
-    riskMsgEl.className = 'risk-message ' + risk;
-
-    document.getElementById('requiredMarksTable').innerHTML = tableHTML;
-
-    // Update progress bar: distance from current to target
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-    let progressPct = 0;
-    if (target > current) {
-      const totalDistance = Math.max(0.0001, target - current);
-      const achieved = Math.max(0, Math.min(target - current, target - current));
-      // simpler: progress = (current / target) on 0-10 scale
-      progressPct = Math.max(0, Math.min(100, (current / target) * 100));
-    } else {
-      progressPct = 100;
-    }
-    progressBar.style.width = progressPct + '%';
-    progressText.textContent = `${Math.round(progressPct)}% of the way there`;
-
-    // Show results section
-    resultsSection.classList.remove('hidden');
-
-    // Insert summary into Performance Insight Box (without removing existing insights)
-    const predictionBox = document.getElementById('prediction-box');
-    const motivationBox = document.getElementById('motivation-box');
-
-    if (predictionBox) {
-      predictionBox.innerHTML = `
-        <strong>Goal Planner:</strong>
-        <div>Current CGPA: <strong>${current.toFixed(2)}</strong></div>
-        <div>Required S2 Average: <strong>${requiredRounded.toFixed(2)}</strong></div>
-        <div>Risk Level: <strong class="${risk}">${riskLabel}</strong></div>
-      `;
-    }
-
-    if (motivationBox) {
-      motivationBox.innerHTML = `Stay focused. Small improvements in each subject can help you achieve your dream CGPA.`;
-    }
-
-    // Re-enable button and restore text after animation
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = 'Calculate Requirement';
-    }, 700);
-
-  } catch (err) {
-    console.error('Goal Planner Error:', err);
-    const errorEl = document.getElementById('cgpaInputError');
-    errorEl.textContent = 'An unexpected error occurred. Please try again.';
-    errorEl.classList.remove('hidden');
-    document.getElementById('calculateGoal').disabled = false;
-  }
-});
+// ==========================
+// 🎯 CGPA GOAL PLANNER EVENT LISTENER
+// (Duplicate calculate handler removed; the DOMContentLoaded-wrapped handler exists earlier.)
