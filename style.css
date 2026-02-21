@@ -1288,6 +1288,269 @@ table tbody tr:last-child td {
     margin-bottom: 25px;
 }
 
+/* CGPA GOAL PLANNER */
+.card-cgpa-planner {
+    margin-bottom: 25px;
+}
+
+.goal-planner-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.goal-input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.goal-input-section label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.goal-input-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.goal-input-section input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--bg-light);
+    color: var(--text-primary);
+    transition: var(--transition);
+}
+
+.goal-input-section input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.error-message {
+    color: #ff4d4d;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px;
+    background: rgba(255, 77, 77, 0.1);
+    border-radius: 6px;
+    border-left: 3px solid #ff4d4d;
+}
+
+.error-message.hidden {
+    display: none;
+}
+
+.goal-results {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.goal-results.hidden {
+    display: none;
+}
+
+.goal-result-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    padding: 15px;
+    background: var(--bg-light);
+    border-radius: 12px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.result-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.result-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.result-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.progress-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+    background: var(--bg-light);
+    border-radius: 12px;
+}
+
+.progress-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 24px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    width: 0%;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 12px;
+}
+
+.progress-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+    font-weight: 500;
+}
+
+.risk-message {
+    padding: 15px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.6;
+    text-align: center;
+    border-left: 4px solid;
+    animation: fadeIn 0.4s ease-in;
+}
+
+.risk-message.realistic {
+    background: rgba(0, 204, 102, 0.1);
+    color: #00cc66;
+    border-left-color: #00cc66;
+}
+
+.risk-message.moderate {
+    background: rgba(255, 204, 0, 0.1);
+    color: #ffaa00;
+    border-left-color: #ffaa00;
+}
+
+.risk-message.risky {
+    background: rgba(255, 77, 77, 0.1);
+    color: #ff4d4d;
+    border-left-color: #ff4d4d;
+}
+
+.risk-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.risk-badge.realistic {
+    background: rgba(0, 204, 102, 0.2);
+    color: #00cc66;
+}
+
+.risk-badge.moderate {
+    background: rgba(255, 204, 0, 0.2);
+    color: #ffaa00;
+}
+
+.risk-badge.risky {
+    background: rgba(255, 77, 77, 0.2);
+    color: #ff4d4d;
+}
+
+.required-marks-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.required-marks-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.required-marks-table {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.required-marks-table table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-white);
+}
+
+.required-marks-table th,
+.required-marks-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+}
+
+.required-marks-table th {
+    background: var(--bg-light);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+}
+
+.required-marks-table td {
+    color: var(--text-primary);
+}
+
+.required-marks-table tbody tr:nth-child(even) {
+    background-color: rgba(102, 126, 234, 0.02);
+}
+
+.required-marks-table tbody tr:hover {
+    background-color: rgba(102, 126, 234, 0.05);
+}
+
+.required-marks-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
 /* SCROLLBAR STYLING */
 ::-webkit-scrollbar {
     width: 8px;
@@ -1440,6 +1703,11 @@ table tbody tr:last-child td {
     .chart-container {
         height: 250px;
     }
+
+    /* CGPA Goal Planner Responsive */
+    .goal-input-wrapper {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1559,5 +1827,23 @@ table tbody tr:last-child td {
     .chart-container {
         height: 200px;
         padding: 15px;
+    }
+
+    /* CGPA Goal Planner Responsive */
+    .goal-input-wrapper {
+        grid-template-columns: 1fr;
+    }
+
+    .goal-result-card {
+        grid-template-columns: 1fr;
+    }
+
+    .required-marks-table table {
+        font-size: 12px;
+    }
+
+    .required-marks-table th,
+    .required-marks-table td {
+        padding: 8px 10px;
     }
 }

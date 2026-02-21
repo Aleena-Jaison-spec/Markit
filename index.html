@@ -257,6 +257,60 @@
                             <button id="saveMarks" type="button" class="btn-primary">Save Marks</button>
                         </form>
                     </div>
+
+                    <!-- CGPA Goal Planner -->
+                    <div class="card card-cgpa-planner">
+                        <h3>🎯 CGPA Goal Planner</h3>
+                        <div class="goal-planner-content">
+                            <div class="goal-input-section">
+                                <label for="targetCGPA">Target CGPA (0-10)</label>
+                                <div class="goal-input-wrapper">
+                                    <input type="number" id="targetCGPA" placeholder="Enter Target CGPA (e.g., 9.0)" min="0" max="10" step="0.1">
+                                    <button id="calculateGoal" class="btn-primary">Calculate Requirement</button>
+                                </div>
+                                <div id="cgpaInputError" class="error-message hidden"></div>
+                            </div>
+
+                            <div id="goalResultsSection" class="goal-results hidden">
+                                <div class="goal-result-card">
+                                    <div class="result-item">
+                                        <span class="result-label">Current CGPA</span>
+                                        <span class="result-value" id="currentCGPADisplay">0.00</span>
+                                    </div>
+                                    <div class="result-item">
+                                        <span class="result-label">Target CGPA</span>
+                                        <span class="result-value" id="targetCGPADisplay">0.00</span>
+                                    </div>
+                                </div>
+
+                                <div class="progress-section">
+                                    <div class="progress-label">Progress to Goal</div>
+                                    <div class="progress-bar-container">
+                                        <div id="progressBar" class="progress-bar"></div>
+                                    </div>
+                                    <div class="progress-text" id="progressText">0% of the way there</div>
+                                </div>
+
+                                <div class="goal-result-card">
+                                    <div class="result-item">
+                                        <span class="result-label">Required S2 Average</span>
+                                        <span class="result-value" id="requiredS2AvgDisplay">0.00</span>
+                                    </div>
+                                    <div class="result-item">
+                                        <span class="result-label">Risk Level</span>
+                                        <span class="result-value risk-badge" id="riskLevelDisplay">Calculating...</span>
+                                    </div>
+                                </div>
+
+                                <div id="riskMessage" class="risk-message"></div>
+
+                                <div class="required-marks-section">
+                                    <h4>Minimum Marks Required per Subject (S2)</h4>
+                                    <div id="requiredMarksTable" class="required-marks-table"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- INTERNALS SECTION -->

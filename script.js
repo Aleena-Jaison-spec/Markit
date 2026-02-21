@@ -394,6 +394,11 @@ async function loadMarks() {
   cachedMarks = [];
   snap.forEach(d => cachedMarks.push({ ...d.data(), id: d.id }));
 
+  // Reset CGPA goal results when marks are reloaded
+  document.getElementById("goalResultsSection")?.classList.add("hidden");
+  document.getElementById("targetCGPA").value = "";
+  document.getElementById("cgpaInputError").classList.add("hidden");
+
   calculateDashboard();
   renderCharts();
   renderInternalsTable();
@@ -556,6 +561,218 @@ function renderInsights() {
   }
   motivationBox.innerHTML = motivation;
 }
+
+
+// ==========================
+// 🎯 CGPA GOAL PLANNER
+// ==========================
+
+function calculateCurrentCGPA() {
+  // Calculate current CGPA from S1 marks only
+  const s1Marks = cachedMarks.filter(m => m.semester === "S1");
+  
+  if (s1Marks.length === 0) {
+    return 0;
+  }
+
+  let totalS1Marks = 0;
+  let totalMaxMarks = 0;
+
+  s1Marks.forEach(m => {
+    totalS1Marks += m.marksScored || 0;
+    totalMaxMarks += m.totalMarks || 0;
+  });
+
+  const currentCGPA = totalMaxMarks > 0 ? (totalS1Marks / totalMaxMarks) * 10 : 0;
+  return parseFloat(currentCGPA.toFixed(2));
+}
+
+function calculateGoalRequirements(targetCGPA) {
+  const currentCGPA = calculateCurrentCGPA();
+  
+  // Formula: Required Average for S2 = ((Target CGPA × 2) − Current CGPA)
+  const requiredS2Avg = (targetCGPA * 2) - currentCGPA;
+
+  // Determine risk level
+  let riskLevel = "realistic";
+  let riskClass = "realistic";
+  
+  if (requiredS2Avg <= currentCGPA) {
+    riskLevel = "🟢 Realistic";
+    riskClass = "realistic";
+  } else if (requiredS2Avg <= currentCGPA + 2) {
+    riskLevel = "🟡 Moderate Effort";
+    riskClass = "moderate";
+  } else {
+    riskLevel = "🔴 Risky";
+    riskClass = "risky";
+  }
+
+  // Get S1 marks to calculate per-subject requirements for S2
+  const s1Marks = cachedMarks.filter(m => m.semester === "S1");
+  
+  // Group S1 marks by subject to get max marks per subject
+  const subjectMaxMarks = {};
+  const subjectOrder = [];
+
+  s1Marks.forEach(m => {
+    if (!subjectMaxMarks[m.subject]) {
+      subjectMaxMarks[m.subject] = m.totalMarks;
+      subjectOrder.push(m.subject);
+    }
+  });
+
+  // Calculate minimum marks required per subject in S2
+  const requiredMarksPerSubject = {};
+  Object.entries(subjectMaxMarks).forEach(([subject, maxMarks]) => {
+    // Assuming S2 will have similar structure
+    // Required marks = (Required Average × Max Mark Per Subject) / 10
+    const requiredMarks = (requiredS2Avg * maxMarks) / 10;
+    requiredMarksPerSubject[subject] = {
+      required: Math.max(0, requiredMarks),
+      max: maxMarks
+    };
+  });
+
+  return {
+    currentCGPA,
+    targetCGPA,
+    requiredS2Avg,
+    riskLevel,
+    riskClass,
+    requiredMarksPerSubject,
+    subjectOrder
+  };
+}
+
+function displayGoalResults(data) {
+  // Display current and target CGPA
+  document.getElementById("currentCGPADisplay").textContent = data.currentCGPA.toFixed(2);
+  document.getElementById("targetCGPADisplay").textContent = data.targetCGPA.toFixed(2);
+
+  // Display required S2 average
+  document.getElementById("requiredS2AvgDisplay").textContent = Math.max(0, data.requiredS2Avg).toFixed(2);
+
+  // Update risk level badge
+  const riskBadge = document.getElementById("riskLevelDisplay");
+  riskBadge.textContent = data.riskLevel;
+  riskBadge.className = `result-value risk-badge ${data.riskClass}`;
+
+  // Update progress bar
+  const progressRange = 10; // 0 to 10 CGPA scale
+  const currentProgress = data.currentCGPA;
+  const targetProgress = Math.min(data.targetCGPA, 10);
+  const progressPercentage = (currentProgress / targetProgress) * 100;
+
+  const progressBar = document.getElementById("progressBar");
+  progressBar.style.width = Math.min(progressPercentage, 100) + "%";
+  
+  const progressText = document.getElementById("progressText");
+  progressText.textContent = Math.min(Math.round(progressPercentage), 100) + "% of the way there";
+
+  // Display risk message
+  let riskMessage = "";
+  let motivationText = "&nbsp;<br>💡 <strong>Pro Tip:</strong> Stay focused. Small improvements in each subject can help you achieve your dream CGPA.";
+
+  if (data.riskClass === "realistic") {
+    riskMessage = `<strong>🟢 Target CGPA is Realistic</strong><br>Maintain consistency in your studies. You're on a great trajectory!${motivationText}`;
+  } else if (data.riskClass === "moderate") {
+    riskMessage = `<strong>🟡 You Need Consistent Improvement</strong><br>An average of <strong>${data.requiredS2Avg.toFixed(2)}</strong> in Semester 2 is required. Increase your efforts slightly.${motivationText}`;
+  } else {
+    riskMessage = `<strong>🔴 This Target is Ambitious</strong><br>You need to score <strong>${data.requiredS2Avg.toFixed(2)}</strong> average in Semester 2. Significant improvement in all subjects required.${motivationText}`;
+  }
+
+  const riskMessageDiv = document.getElementById("riskMessage");
+  riskMessageDiv.innerHTML = riskMessage;
+  riskMessageDiv.className = `risk-message ${data.riskClass}`;
+
+  // Display required marks table
+  let tableHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>SUBJECT</th>
+          <th>MIN MARKS REQUIRED</th>
+          <th>OUT OF</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  data.subjectOrder.forEach(subject => {
+    const marks = data.requiredMarksPerSubject[subject];
+    tableHTML += `
+      <tr>
+        <td><strong>${subject}</strong></td>
+        <td>${marks.required.toFixed(1)}</td>
+        <td>${marks.max}</td>
+      </tr>
+    `;
+  });
+
+  tableHTML += `
+      </tbody>
+    </table>
+  `;
+
+  document.getElementById("requiredMarksTable").innerHTML = tableHTML;
+
+  // Show results section with animation
+  const resultsSection = document.getElementById("goalResultsSection");
+  resultsSection.classList.remove("hidden");
+}
+
+function handleCalculateGoal() {
+  const targetCGPAInput = document.getElementById("targetCGPA").value.trim();
+  const errorDiv = document.getElementById("cgpaInputError");
+
+  // Validation
+  if (!targetCGPAInput) {
+    errorDiv.textContent = "❌ Please enter a target CGPA value";
+    errorDiv.classList.remove("hidden");
+    return;
+  }
+
+  const targetCGPA = parseFloat(targetCGPAInput);
+
+  if (isNaN(targetCGPA)) {
+    errorDiv.textContent = "❌ Please enter a valid number";
+    errorDiv.classList.remove("hidden");
+    return;
+  }
+
+  if (targetCGPA < 0 || targetCGPA > 10) {
+    errorDiv.textContent = "❌ Target CGPA must be between 0 and 10";
+    errorDiv.classList.remove("hidden");
+    return;
+  }
+
+  // Check if S1 marks are available
+  const s1Marks = cachedMarks.filter(m => m.semester === "S1");
+  if (s1Marks.length === 0) {
+    errorDiv.textContent = "❌ Please add Semester 1 marks first to use the CGPA planner";
+    errorDiv.classList.remove("hidden");
+    return;
+  }
+
+  // Hide error and calculate
+  errorDiv.classList.add("hidden");
+
+  const data = calculateGoalRequirements(targetCGPA);
+  displayGoalResults(data);
+}
+
+// Event listener for calculate goal button
+document.getElementById("calculateGoal")?.addEventListener("click", () => {
+  handleCalculateGoal();
+});
+
+// Allow Enter key to trigger calculation
+document.getElementById("targetCGPA")?.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
+    handleCalculateGoal();
+  }
+});
 
 
 // ==========================
@@ -1094,3 +1311,188 @@ function addMarksActionButtons() {
     }
   });
 }
+
+// ==========================
+// 🎯 CGPA GOAL PLANNER LOGIC
+// ==========================
+
+function getS1SubjectsOrdered() {
+  const order = [];
+  const seen = new Set();
+  cachedMarks.forEach(m => {
+    if (m.semester === 'S1' && !seen.has(m.subject)) {
+      seen.add(m.subject);
+      order.push(m.subject);
+    }
+  });
+  return order;
+}
+
+function getMaxMarkPerSubject(subject) {
+  // Prefer semester exam totalMarks if available, else max totalMarks seen, else default 100
+  const s1ForSub = cachedMarks.filter(m => m.semester === 'S1' && m.subject === subject);
+  if (!s1ForSub || s1ForSub.length === 0) return 100;
+  const semExam = s1ForSub.find(m => m.examType === 'Semester' && m.totalMarks);
+  if (semExam) return semExam.totalMarks;
+  return Math.max(...s1ForSub.map(m => m.totalMarks || 100));
+}
+
+function calculateCurrentCGPAFromS1() {
+  const s1 = cachedMarks.filter(m => m.semester === 'S1');
+  if (s1.length === 0) return { currentCGPA: 0, total: 0, maxTotal: 0 };
+  let total = 0, max = 0;
+  s1.forEach(m => {
+    total += Number(m.marksScored || 0);
+    max += Number(m.totalMarks || 0);
+  });
+  if (max === 0) return { currentCGPA: 0, total, maxTotal: max };
+  const currentCGPA = (total / max) * 10;
+  return { currentCGPA, total, maxTotal: max };
+}
+
+document.getElementById('calculateGoal')?.addEventListener('click', () => {
+  try {
+    const btn = document.getElementById('calculateGoal');
+    const input = document.getElementById('targetCGPA');
+    const errorEl = document.getElementById('cgpaInputError');
+    const resultsSection = document.getElementById('goalResultsSection');
+
+    errorEl.classList.add('hidden');
+
+    const rawTarget = input.value;
+    if (!rawTarget && rawTarget !== 0) {
+      errorEl.textContent = 'Please enter a target CGPA.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    const target = Number(rawTarget);
+    if (isNaN(target) || target < 0 || target > 10) {
+      errorEl.textContent = 'Target CGPA must be a number between 0 and 10.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    // Ensure S1 marks available
+    const s1Marks = cachedMarks.filter(m => m.semester === 'S1');
+    if (!s1Marks || s1Marks.length === 0) {
+      errorEl.textContent = 'Semester 1 marks not available. Cannot calculate requirements.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    // Disable button briefly for animation / preventing double-click
+    btn.disabled = true;
+    btn.textContent = 'Calculating...';
+
+    // Compute current CGPA
+    const { currentCGPA, total, maxTotal } = calculateCurrentCGPAFromS1();
+    const current = Number(currentCGPA.toFixed(2));
+
+    // Required average for Semester 2 (on 0-10 scale)
+    let requiredS2Avg = (target * 2) - current;
+    // Clamp to sensible range 0..10 for display
+    requiredS2Avg = Math.max(0, Math.min(10, requiredS2Avg));
+    const requiredRounded = Number(requiredS2Avg.toFixed(2));
+
+    // Risk assessment thresholds
+    const diff = requiredS2Avg - current;
+    let risk = 'realistic';
+    let riskLabel = 'Realistic';
+    let riskMsg = 'Target CGPA is realistic. Maintain consistency.';
+
+    if (requiredS2Avg <= current) {
+      risk = 'realistic';
+      riskLabel = 'Realistic';
+      riskMsg = 'Target CGPA is realistic. Maintain consistency.';
+    } else if (diff > 0 && diff <= 1.0) {
+      risk = 'moderate';
+      riskLabel = 'Moderate';
+      riskMsg = 'You need consistent improvement to reach your target.';
+    } else {
+      risk = 'risky';
+      riskLabel = 'Risky';
+      riskMsg = 'Target is ambitious. Significant improvement required.';
+    }
+
+    // Required marks per subject (use subjects from S1 in order entered)
+    const subjects = getS1SubjectsOrdered();
+    let tableHTML = '';
+    if (subjects.length === 0) {
+      tableHTML = '<p style="padding:12px; color: var(--text-secondary);">No subjects found for Semester 2 estimation.</p>';
+    } else {
+      tableHTML = `<table><thead><tr><th>Subject</th><th>Minimum Marks Required</th></tr></thead><tbody>`;
+      subjects.forEach(sub => {
+        const maxPer = getMaxMarkPerSubject(sub) || 100;
+        const requiredMarks = Math.ceil((requiredS2Avg * maxPer) / 10);
+        const safeRequired = Math.max(0, Math.min(requiredMarks, maxPer));
+        const highlight = requiredMarks > maxPer ? 'style="color: var(--text-primary); font-weight:700; background: rgba(255,77,77,0.06);"' : '';
+        tableHTML += `<tr><td>${sub}</td><td ${highlight}>${safeRequired} / ${maxPer}</td></tr>`;
+      });
+      tableHTML += `</tbody></table>`;
+    }
+
+    // Update UI
+    document.getElementById('currentCGPADisplay').textContent = current.toFixed(2);
+    document.getElementById('targetCGPADisplay').textContent = target.toFixed(2);
+    document.getElementById('requiredS2AvgDisplay').textContent = requiredRounded.toFixed(2);
+
+    const riskEl = document.getElementById('riskLevelDisplay');
+    riskEl.textContent = riskLabel;
+    riskEl.className = 'result-value risk-badge ' + risk;
+
+    const riskMsgEl = document.getElementById('riskMessage');
+    riskMsgEl.textContent = riskMsg;
+    riskMsgEl.className = 'risk-message ' + risk;
+
+    document.getElementById('requiredMarksTable').innerHTML = tableHTML;
+
+    // Update progress bar: distance from current to target
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    let progressPct = 0;
+    if (target > current) {
+      const totalDistance = Math.max(0.0001, target - current);
+      const achieved = Math.max(0, Math.min(target - current, target - current));
+      // simpler: progress = (current / target) on 0-10 scale
+      progressPct = Math.max(0, Math.min(100, (current / target) * 100));
+    } else {
+      progressPct = 100;
+    }
+    progressBar.style.width = progressPct + '%';
+    progressText.textContent = `${Math.round(progressPct)}% of the way there`;
+
+    // Show results section
+    resultsSection.classList.remove('hidden');
+
+    // Insert summary into Performance Insight Box (without removing existing insights)
+    const predictionBox = document.getElementById('prediction-box');
+    const motivationBox = document.getElementById('motivation-box');
+
+    if (predictionBox) {
+      predictionBox.innerHTML = `
+        <strong>Goal Planner:</strong>
+        <div>Current CGPA: <strong>${current.toFixed(2)}</strong></div>
+        <div>Required S2 Average: <strong>${requiredRounded.toFixed(2)}</strong></div>
+        <div>Risk Level: <strong class="${risk}">${riskLabel}</strong></div>
+      `;
+    }
+
+    if (motivationBox) {
+      motivationBox.innerHTML = `Stay focused. Small improvements in each subject can help you achieve your dream CGPA.`;
+    }
+
+    // Re-enable button and restore text after animation
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = 'Calculate Requirement';
+    }, 700);
+
+  } catch (err) {
+    console.error('Goal Planner Error:', err);
+    const errorEl = document.getElementById('cgpaInputError');
+    errorEl.textContent = 'An unexpected error occurred. Please try again.';
+    errorEl.classList.remove('hidden');
+    document.getElementById('calculateGoal').disabled = false;
+  }
+});
