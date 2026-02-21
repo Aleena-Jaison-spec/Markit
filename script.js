@@ -811,8 +811,8 @@ function renderCharts() {
             label: "Percentage",
             data: Object.values(subjectMap)
               .map(v => (v.s / v.t) * 100),
-            backgroundColor: "rgba(102, 126, 234, 0.6)",
-            borderColor: "#667eea",
+            backgroundColor: "rgba(0, 217, 255, 0.6)",
+            borderColor: "#00D9FF",
             borderWidth: 2
           }]
         },
@@ -989,8 +989,8 @@ function renderInternalsTrendChart(subjects, data) {
         {
           label: "Internal 1",
           data: internal1Scores,
-          borderColor: "#667eea",
-          backgroundColor: "rgba(102, 126, 234, 0.1)",
+          borderColor: "#00D9FF",
+          backgroundColor: "rgba(0, 217, 255, 0.1)",
           tension: 0.4,
           fill: true,
           pointRadius: 5,
@@ -1000,8 +1000,8 @@ function renderInternalsTrendChart(subjects, data) {
         {
           label: "Internal 2",
           data: internal2Scores,
-          borderColor: "#764ba2",
-          backgroundColor: "rgba(118, 75, 162, 0.1)",
+          borderColor: "#0099CC",
+          backgroundColor: "rgba(0, 153, 204, 0.1)",
           tension: 0.4,
           fill: true,
           pointRadius: 5,
